@@ -168,6 +168,13 @@ router.post('/', async (req, res) => {
       const sql = `SELECT ${colParts.join(', ')} FROM "${table}" ${joinSql} ${whereSql} ${orderSql} ${limitSql}`;
       const result = await pool.query(sql, params);
 
+      // Nunca expor a apikey da Evolution via a API genérica de leitura
+      if (table === 'configuracoes') {
+        result.rows.forEach((r) => {
+          if (r && r.chave === 'evolution_apikey') r.valor = '';
+        });
+      }
+
       if (single || maybeSingle) {
         if (result.rows.length === 0) {
           return res.json({ data: null, error: single ? { code: 'PGRST116' } : null });

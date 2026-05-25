@@ -186,6 +186,27 @@ const authClient = {
   },
 };
 
+// ── WhatsApp (Evolution API) ──────────────────────────────────────────────────
+
+const whatsappClient = {
+  // Admin: lê config (apikey vem mascarada → apikey_set: bool)
+  async getConfig() {
+    return apiFetch('/whatsapp/config');
+  },
+  // Admin: salva config (apikey só é gravada se enviada não-vazia)
+  async saveConfig(cfg) {
+    return apiFetch('/whatsapp/config', { method: 'POST', body: JSON.stringify(cfg) });
+  },
+  // Usuário: envia código de verificação
+  async sendCode(telefone) {
+    return apiFetch('/whatsapp/send-code', { method: 'POST', body: JSON.stringify({ telefone }) });
+  },
+  // Usuário: verifica código → { action: 'recovered'|'linked', deviceId }
+  async verifyCode(telefone, codigo) {
+    return apiFetch('/whatsapp/verify-code', { method: 'POST', body: JSON.stringify({ telefone, codigo }) });
+  },
+};
+
 // ── RPC ──────────────────────────────────────────────────────────────────────
 
 async function rpc(name, params = {}) {
@@ -217,6 +238,7 @@ export const supabase = {
   rpc,
   storage: storageClient,
   auth: authClient,
+  whatsapp: whatsappClient,
   channel() { return makeChannel(); },
   removeChannel() { /* no-op */ },
   removeAllChannels() { /* no-op */ },

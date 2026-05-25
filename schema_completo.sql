@@ -24,10 +24,21 @@ CREATE TABLE IF NOT EXISTS perfis (
   streak_atual           INTEGER NOT NULL DEFAULT 0,
   ultimo_dia_transmissao DATE,
   ultima_adicao_pontos   TIMESTAMPTZ,
+  telefone               TEXT,
   atualizado_em          TIMESTAMPTZ DEFAULT now(),
   criado_em              TIMESTAMPTZ DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_perfis_referral_code ON perfis (referral_code);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_perfis_telefone ON perfis (telefone) WHERE telefone IS NOT NULL;
+
+-- Códigos de verificação WhatsApp (recuperação de conta)
+CREATE TABLE IF NOT EXISTS whatsapp_codigos (
+  telefone   TEXT PRIMARY KEY,
+  codigo     TEXT NOT NULL,
+  expira_em  TIMESTAMPTZ NOT NULL,
+  tentativas INTEGER NOT NULL DEFAULT 0,
+  criado_em  TIMESTAMPTZ DEFAULT now()
+);
 
 -- Lojas / estabelecimentos parceiros
 CREATE TABLE IF NOT EXISTS lojas (
@@ -533,7 +544,11 @@ $$;
 -- ============================================================================
 -- 4. SEED — configuração padrão
 -- ============================================================================
-INSERT INTO configuracoes (chave, valor) VALUES ('pontos_ativados', 'true')
+INSERT INTO configuracoes (chave, valor) VALUES
+  ('pontos_ativados', 'true'),
+  ('evolution_url', ''),
+  ('evolution_apikey', ''),
+  ('evolution_instance', '')
 ON CONFLICT (chave) DO NOTHING;
 
 -- ============================================================================

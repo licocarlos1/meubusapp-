@@ -21,6 +21,12 @@ export default function Home() {
   const [recoveryInput, setRecoveryInput] = useState('');
   const [recoveryStatus, setRecoveryStatus] = useState(null); // null | 'loading' | 'success' | 'error'
   const [recoveryMsg, setRecoveryMsg] = useState('');
+  // Recuperação por WhatsApp
+  const [waPhone, setWaPhone] = useState('');
+  const [waCode, setWaCode] = useState('');
+  const [waStep, setWaStep] = useState('phone'); // 'phone' | 'code'
+  const [waStatus, setWaStatus] = useState(null); // null | 'busy' | 'error' | 'success'
+  const [waMsg, setWaMsg] = useState('');
   const [codeCopied, setCodeCopied] = useState(false);
   const [linhas, setLinhas] = useState([]);
   const [copied, setCopied] = useState(false);
@@ -129,6 +135,40 @@ export default function Home() {
     } catch (e) {
       setRecoveryStatus('error');
       setRecoveryMsg('Erro de conexão. Verifique sua internet e tente novamente.');
+    }
+  };
+
+  const sendWaCode = async () => {
+    setWaStatus('busy');
+    setWaMsg('');
+    try {
+      await supabase.whatsapp.sendCode(waPhone);
+      setWaStep('code');
+      setWaStatus(null);
+      setWaMsg('Código enviado pelo WhatsApp. Confira suas mensagens.');
+    } catch (e) {
+      setWaStatus('error');
+      setWaMsg(e.message || 'Não foi possível enviar o código.');
+    }
+  };
+
+  const verifyWaCode = async () => {
+    setWaStatus('busy');
+    setWaMsg('');
+    try {
+      const r = await supabase.whatsapp.verifyCode(waPhone, waCode);
+      if (r.action === 'recovered') {
+        localStorage.setItem('meubusapp_device_id', r.deviceId);
+        setWaStatus('success');
+        setWaMsg('Conta recuperada! Recarregando...');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        setWaStatus('success');
+        setWaMsg('✅ WhatsApp vinculado! Agora você pode recuperar seu saldo em qualquer celular.');
+      }
+    } catch (e) {
+      setWaStatus('error');
+      setWaMsg(e.message || 'Código incorreto.');
     }
   };
 
@@ -451,6 +491,68 @@ export default function Home() {
               >
                 {recoveryStatus === 'loading' ? '⏳ Verificando...' : '🔄 Restaurar minha conta'}
               </button>
+            </div>
+
+            {/* Seção: WhatsApp */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
+              <div style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 600, marginBottom: '0.5rem' }}>
+                💬 Recuperar pelo WhatsApp
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1rem', lineHeight: 1.5 }}>
+                Vincule seu número uma vez e recupere seu saldo em qualquer celular — sem precisar do código longo.
+              </div>
+
+              {waStep === 'phone' ? (
+                <>
+                  <input
+                    type="tel"
+                    value={waPhone}
+                    onChange={(e) => { setWaPhone(e.target.value); setWaStatus(null); }}
+                    placeholder="Seu WhatsApp com DDD (ex: 31 98888-7777)"
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '0.8rem', color: '#e2e8f0', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    onClick={sendWaCode}
+                    disabled={waStatus === 'busy' || waPhone.replace(/\D/g, '').length < 10}
+                    style={{ width: '100%', marginTop: '1rem' }}
+                  >
+                    {waStatus === 'busy' ? '⏳ Enviando...' : '📲 Enviar código pelo WhatsApp'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={waCode}
+                    onChange={(e) => { setWaCode(e.target.value.replace(/\D/g, '')); setWaStatus(null); }}
+                    placeholder="Código de 6 dígitos"
+                    maxLength={6}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '0.8rem', color: '#e2e8f0', fontSize: '1.1rem', letterSpacing: '4px', textAlign: 'center', boxSizing: 'border-box' }}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    onClick={verifyWaCode}
+                    disabled={waStatus === 'busy' || waStatus === 'success' || waCode.length < 6}
+                    style={{ width: '100%', marginTop: '1rem' }}
+                  >
+                    {waStatus === 'busy' ? '⏳ Verificando...' : '✅ Confirmar código'}
+                  </button>
+                  <button
+                    onClick={() => { setWaStep('phone'); setWaCode(''); setWaStatus(null); setWaMsg(''); }}
+                    style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.78rem', cursor: 'pointer', marginTop: '0.6rem', width: '100%' }}
+                  >
+                    ← Usar outro número
+                  </button>
+                </>
+              )}
+
+              {waMsg && (
+                <div style={{ fontSize: '0.8rem', marginTop: '0.7rem', padding: '0.6rem', borderRadius: '6px', background: waStatus === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: waStatus === 'error' ? '#ef4444' : '#10b981' }}>
+                  {waStatus === 'error' ? '❌ ' : ''}{waMsg}
+                </div>
+              )}
             </div>
           </div>
         </div>

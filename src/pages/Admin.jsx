@@ -43,6 +43,11 @@ export default function Admin() {
   // Config state
   const [pontosAtivados, setPontosAtivados] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
+  // Evolution / WhatsApp config
+  const [evoCfg, setEvoCfg] = useState({ evolution_url: '', evolution_instance: '', evolution_apikey: '' });
+  const [evoApiKeySet, setEvoApiKeySet] = useState(false);
+  const [savingEvo, setSavingEvo] = useState(false);
+  const [evoMsg, setEvoMsg] = useState('');
   const [history, setHistory] = useState([]);
   const [transmissionLogs, setTransmissionLogs] = useState([]);
   const [coordenadasCount, setCoordenadasCount] = useState(0);
@@ -199,6 +204,12 @@ export default function Admin() {
           const pontos = cfg.find((c) => c.chave === 'pontos_ativados');
           if (pontos) setPontosAtivados(pontos.valor === 'true');
         }
+        // Config do WhatsApp via endpoint dedicado (apikey vem mascarada)
+        try {
+          const wcfg = await supabase.whatsapp.getConfig();
+          setEvoCfg({ evolution_url: wcfg.evolution_url || '', evolution_instance: wcfg.evolution_instance || '', evolution_apikey: '' });
+          setEvoApiKeySet(!!wcfg.apikey_set);
+        } catch (_) { /* ignora */ }
         break;
       }
     }
@@ -484,6 +495,27 @@ export default function Admin() {
     await supabase.from('configuracoes').upsert({ chave: 'pontos_ativados', valor: String(newVal) });
     setPontosAtivados(newVal);
     setSavingConfig(false);
+  };
+
+  const saveEvoConfig = async () => {
+    setSavingEvo(true);
+    setEvoMsg('');
+    try {
+      const payload = {
+        evolution_url: evoCfg.evolution_url.trim(),
+        evolution_instance: evoCfg.evolution_instance.trim(),
+      };
+      // Só envia a apikey se foi digitada (não apaga a existente ao editar)
+      if (evoCfg.evolution_apikey.trim()) payload.evolution_apikey = evoCfg.evolution_apikey.trim();
+      await supabase.whatsapp.saveConfig(payload);
+      if (payload.evolution_apikey) setEvoApiKeySet(true);
+      setEvoCfg((c) => ({ ...c, evolution_apikey: '' }));
+      setEvoMsg('✅ Configuração salva!');
+    } catch (e) {
+      setEvoMsg('❌ Erro ao salvar: ' + e.message);
+    } finally {
+      setSavingEvo(false);
+    }
   };
 
   if (!isLoggedIn) {
@@ -1603,6 +1635,60 @@ export default function Admin() {
 
           <div style={{ marginTop: '1.5rem', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', padding: '0.8rem 1rem', fontSize: '0.78rem', color: '#94a3b8' }}>
             💡 <strong style={{ color: '#60a5fa' }}>Dica:</strong> Use esta opção enquanto ainda não tem parceiros locais cadastrados. Assim o sistema de rastreamento funciona normalmente e você pode ativar os pontos quando estiver pronto.
+          </div>
+
+          {/* ── WhatsApp / Evolution API ── */}
+          <div style={{
+            marginTop: '2rem',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '12px',
+            padding: '1.2rem 1.4rem',
+          }}>
+            <div style={{ fontWeight: 700, color: '#e2e8f0', marginBottom: '4px' }}>
+              📱 Recuperação por WhatsApp (Evolution API)
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', lineHeight: 1.5, marginBottom: '1.2rem' }}>
+              Permite que o usuário vincule o número e recupere o saldo ao trocar de celular.
+              Preencha com os dados da sua instância da Evolution API.
+            </div>
+
+            <label style={{ fontSize: '0.75rem', color: '#94a3b8' }}>URL da Evolution API</label>
+            <input
+              placeholder="https://evo.sevenbots.com.br"
+              value={evoCfg.evolution_url}
+              onChange={(e) => setEvoCfg({ ...evoCfg, evolution_url: e.target.value })}
+              style={{ width: '100%', marginBottom: '0.8rem' }}
+            />
+
+            <label style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Nome da Instância</label>
+            <input
+              placeholder="ex: meubusapp"
+              value={evoCfg.evolution_instance}
+              onChange={(e) => setEvoCfg({ ...evoCfg, evolution_instance: e.target.value })}
+              style={{ width: '100%', marginBottom: '0.8rem' }}
+            />
+
+            <label style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+              API Key {evoApiKeySet && <span style={{ color: '#10b981' }}>(já configurada — deixe em branco para manter)</span>}
+            </label>
+            <input
+              type="password"
+              placeholder={evoApiKeySet ? '••••••••••••••••' : 'Cole a API Key da instância'}
+              value={evoCfg.evolution_apikey}
+              onChange={(e) => setEvoCfg({ ...evoCfg, evolution_apikey: e.target.value })}
+              style={{ width: '100%', marginBottom: '1rem' }}
+              autoComplete="new-password"
+            />
+
+            <button className="btn btn-primary" onClick={saveEvoConfig} disabled={savingEvo} style={{ width: 'auto', padding: '0.6rem 1.4rem' }}>
+              {savingEvo ? 'Salvando...' : 'Salvar configuração WhatsApp'}
+            </button>
+            {evoMsg && (
+              <div style={{ marginTop: '0.8rem', fontSize: '0.8rem', color: evoMsg.startsWith('✅') ? '#10b981' : '#ef4444' }}>
+                {evoMsg}
+              </div>
+            )}
           </div>
         </div>
       )}

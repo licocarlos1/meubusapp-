@@ -9,6 +9,7 @@ import dataRouter from './routes/data.js';
 import rpcRouter from './routes/rpc.js';
 import uploadRouter from './routes/upload.js';
 import { UPLOADS_DIR } from './routes/upload.js';
+import whatsappRouter from './routes/whatsapp.js';
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/query', dataRouter);
 app.use('/api/rpc', rpcRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/whatsapp', whatsappRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
