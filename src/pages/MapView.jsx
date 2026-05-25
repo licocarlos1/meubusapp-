@@ -29,16 +29,23 @@ function freshness(dateStr) {
   return { color: '#eab308', label: `${Math.floor(diff / 60)} min` };
 }
 
+const STREET_ZOOM = 17; // nível de rua
+
 function MapCenterer({ buses }) {
   const map = useMap();
   const hasCentered = useRef(false);
   useEffect(() => {
     if (hasCentered.current) return;
     const ids = Object.keys(buses);
-    if (ids.length > 0) {
+    if (ids.length === 1) {
+      // Um único ônibus → centraliza nele já no nível de rua
+      const b = buses[ids[0]];
+      map.setView([b.latitude, b.longitude], STREET_ZOOM);
+      hasCentered.current = true;
+    } else if (ids.length > 1) {
+      // Vários ônibus → enquadra todos, mas aproxima até o nível de rua
       const coords = ids.map((id) => [buses[id].latitude, buses[id].longitude]);
-      const bounds = L.latLngBounds(coords);
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+      map.fitBounds(L.latLngBounds(coords), { padding: [60, 60], maxZoom: STREET_ZOOM });
       hasCentered.current = true;
     }
   }, [buses, map]);
