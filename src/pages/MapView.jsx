@@ -108,8 +108,8 @@ export default function MapView() {
     return () => clearInterval(timer);
   }, [now]);
 
-  const fetchExistingBuses = async () => {
-    setLoading(true);
+  const fetchExistingBuses = async (silent = false) => {
+    if (!silent) setLoading(true);
     setDbError(null);
     const { data, error } = await supabase.from('onibus_posicoes').select('*');
     if (error) {
@@ -135,38 +135,12 @@ export default function MapView() {
     fetchExistingBuses();
     fetchLinhas();
 
-    const channel = supabase
-      .channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'onibus_posicoes' }, (payload) => {
-        setBuses((current) => {
-          const next = { ...current };
-          if (payload.eventType === 'DELETE') {
-            delete next[payload.old.id];
-          } else {
-            const b = payload.new;
-            if (new Date() - new Date(b.ultima_atualizacao) < FIVE_MINUTES_MS) {
-              next[b.id] = b;
-            }
-          }
-          return next;
-        });
-      })
-      .subscribe();
-
-    const interval = setInterval(() => {
-      setBuses((current) => {
-        const cleaned = {};
-        const t = new Date();
-        for (const key in current) {
-          if (t - new Date(current[key].ultima_atualizacao) < FIVE_MINUTES_MS) cleaned[key] = current[key];
-        }
-        return cleaned;
-      });
-    }, 60000);
+    // Sem realtime no PostgreSQL próprio → polling: rebusca as posições a cada 12s.
+    // O fetch já filtra ônibus ativos (< 5 min), removendo os que pararam de transmitir.
+    const poll = setInterval(() => fetchExistingBuses(true), 12000);
 
     return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
+      clearInterval(poll);
     };
   }, []);
 

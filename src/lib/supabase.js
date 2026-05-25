@@ -197,6 +197,19 @@ async function rpc(name, params = {}) {
   }
 }
 
+// ── Realtime (stub) ────────────────────────────────────────────────────────
+// O PostgreSQL puro não tem o realtime via websocket do Supabase.
+// Os componentes usam polling no lugar. Estes stubs evitam que chamadas a
+// channel()/subscribe()/removeChannel() quebrem a aplicação.
+function makeChannel() {
+  const ch = {
+    on() { return ch; },
+    subscribe(cb) { if (typeof cb === 'function') cb('SUBSCRIBED'); return ch; },
+    unsubscribe() { return Promise.resolve('ok'); },
+  };
+  return ch;
+}
+
 // ── Export (mesma interface do Supabase) ──────────────────────────────────────
 
 export const supabase = {
@@ -204,4 +217,7 @@ export const supabase = {
   rpc,
   storage: storageClient,
   auth: authClient,
+  channel() { return makeChannel(); },
+  removeChannel() { /* no-op */ },
+  removeAllChannels() { /* no-op */ },
 };
