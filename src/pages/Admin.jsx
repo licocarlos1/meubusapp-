@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Lock, Plus, Trash2, MapPin, Gift, Image, LogOut, Check, Radio, BarChart, Download, X, Edit2, Menu, Settings } from 'lucide-react';
+import { Lock, Plus, Trash2, MapPin, Gift, Image, LogOut, Check, Radio, BarChart, Download, X, Edit2, Menu, Settings, Users } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
@@ -24,6 +24,7 @@ const MENU_ITEMS = [
   { id: 'brindes',      icon: <Gift size={18} />,       label: 'Brindes' },
   { id: 'anuncios',     icon: <Image size={18} />,      label: 'Anúncios' },
   { id: 'rotas',        icon: <Radio size={18} />,      label: 'Rotas' },
+  { id: 'perfis',       icon: <Users size={18} />,      label: 'Perfis' },
   { id: 'history',      icon: <Check size={18} />,      label: 'Resgates' },
   { id: 'logs',         icon: <Check size={18} />,      label: 'Viagens' },
   { id: 'relatorios',   icon: <BarChart size={18} />,   label: 'Relatórios' },
@@ -57,6 +58,8 @@ export default function Admin() {
   const [brindes, setBrindes] = useState([]);
   const [anuncios, setAnuncios] = useState([]);
   const [linhas, setLinhas] = useState([]);
+  const [perfis, setPerfis] = useState([]);
+  const [perfilSearch, setPerfilSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -111,6 +114,15 @@ export default function Admin() {
         ]);
         if (l) setLojas(l);
         if (b) setBrindes(b);
+        break;
+      }
+      case 'perfis': {
+        const { data: p } = await supabase
+          .from('perfis')
+          .select('*')
+          .order('pontos', { ascending: false })
+          .limit(500);
+        if (p) setPerfis(p);
         break;
       }
       case 'anuncios': {
@@ -1448,6 +1460,85 @@ export default function Admin() {
       }
 
       {/* ── Configurações ─────────────────────────────── */}
+      {tab === 'perfis' && (
+        <div className="glass-panel" style={{ padding: '1.5rem' }}>
+          <h3>Perfis de Usuários</h3>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1rem' }}>
+            Saldo de MeuBusCoins, sequência e indicações por dispositivo. ({perfis.length} perfis)
+          </p>
+
+          <input
+            placeholder="🔎 Buscar por código de recuperação (device id) ou código de indicação..."
+            value={perfilSearch}
+            onChange={(e) => setPerfilSearch(e.target.value)}
+            style={{ width: '100%', marginBottom: '1rem' }}
+          />
+
+          {/* Totais */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+            <div style={{ background: 'rgba(234,179,8,0.1)', borderRadius: '10px', padding: '0.8rem 1.2rem' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#eab308' }}>
+                {perfis.reduce((acc, p) => acc + (p.pontos || 0), 0)}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Total de pontos em circulação</div>
+            </div>
+            <div style={{ background: 'rgba(59,130,246,0.1)', borderRadius: '10px', padding: '0.8rem 1.2rem' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#60a5fa' }}>{perfis.length}</div>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Usuários cadastrados</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {perfis
+              .filter((p) => {
+                const q = perfilSearch.trim().toLowerCase();
+                if (!q) return true;
+                return (
+                  (p.id || '').toLowerCase().includes(q) ||
+                  (p.referral_code || '').toLowerCase().includes(q)
+                );
+              })
+              .map((p) => (
+                <div
+                  key={p.id}
+                  className="glass-panel"
+                  style={{ padding: '0.8rem', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
+                >
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <div
+                      style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: '#94a3b8', cursor: 'pointer', wordBreak: 'break-all' }}
+                      title="Clique para copiar o código de recuperação"
+                      onClick={() => navigator.clipboard.writeText(p.id)}
+                    >
+                      🔑 {p.id}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '3px' }}>
+                      Indicação: <strong style={{ color: '#94a3b8' }}>{p.referral_code}</strong>
+                      {p.referral_processado && <span style={{ color: '#10b981' }}> · indicado ✓</span>}
+                      {p.ultimo_dia_transmissao && <span> · últ. viagem: {p.ultimo_dia_transmissao}</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                    {p.streak_atual > 0 && (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontWeight: 800, color: '#eab308' }}>🔥 {p.streak_atual}</div>
+                        <div style={{ fontSize: '0.6rem', color: '#64748b' }}>dias</div>
+                      </div>
+                    )}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--secondary, #eab308)' }}>{p.pontos || 0}</div>
+                      <div style={{ fontSize: '0.6rem', color: '#64748b' }}>MeuBusCoins</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            {perfis.length === 0 && (
+              <div style={{ textAlign: 'center', color: '#64748b', padding: '2rem' }}>Nenhum perfil ainda.</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {tab === 'configuracoes' && (
         <div className="glass-panel" style={{ padding: '1.5rem', maxWidth: '600px' }}>
           <h3 style={{ marginBottom: '0.5rem' }}>Configurações do Sistema</h3>
