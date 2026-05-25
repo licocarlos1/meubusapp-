@@ -100,13 +100,14 @@ export const updateStreak = async (deviceId) => {
 
 export function usePoints() {
   const [totalPoints, setTotalPoints] = useState(0);
+  const [hasPhone, setHasPhone] = useState(true); // assume true até saber (evita flash do aviso)
   const deviceId = getDeviceId();
 
   const fetchPoints = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('perfis')
-        .select('pontos, streak_atual')
+        .select('pontos, streak_atual, telefone')
         .eq('id', deviceId)
         .single();
 
@@ -119,8 +120,10 @@ export function usePoints() {
           .select('pontos')
           .single();
         if (newData) setTotalPoints(newData.pontos || 0);
+        setHasPhone(false); // perfil novo nunca tem telefone
       } else if (data) {
         setTotalPoints(data.pontos || 0);
+        setHasPhone(!!data.telefone);
         // Sync streak cache from DB
         if (data.streak_atual != null) {
           localStorage.setItem(STREAK_KEY, String(data.streak_atual));
@@ -194,6 +197,7 @@ export function usePoints() {
 
   return {
     totalPoints,
+    hasPhone,
     addPoints: addPointsDB,
     deviceId,
     refreshPoints: fetchPoints,

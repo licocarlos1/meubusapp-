@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BusFront, MapPin, Wallet, Coins, Smartphone, Map as MapIcon, X, HelpCircle, Share2, Copy, CheckCheck, Flame, KeyRound } from 'lucide-react';
+import { BusFront, MapPin, Wallet, Coins, Smartphone, Map as MapIcon, X, HelpCircle, Share2, Copy, CheckCheck, Flame, KeyRound, MessageCircle } from 'lucide-react';
 import { usePoints } from '../hooks/usePoints';
 import { getReferralCode, getStreak, getDeviceId } from '../hooks/usePoints';
 import { useConfig } from '../hooks/useConfig';
@@ -9,9 +9,11 @@ import Footer from '../components/Footer';
 import AdBanner from '../components/AdBanner';
 
 export default function Home() {
-  const { totalPoints } = usePoints();
+  const { totalPoints, hasPhone } = usePoints();
   const { pontosAtivados } = useConfig();
   const navigate = useNavigate();
+  const waSectionRef = useRef(null);
+  const [waReminderOff, setWaReminderOff] = useState(() => !!localStorage.getItem('meubusapp_wa_reminder_off'));
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isIOS, setIsIOS] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -172,6 +174,21 @@ export default function Home() {
     }
   };
 
+  // Abre o modal de recuperação já rolando até a seção do WhatsApp
+  const openWaLink = () => {
+    setShowRecoveryModal(true);
+    setRecoveryStatus(null);
+    setWaStep('phone');
+    setWaStatus(null);
+    setWaMsg('');
+    setTimeout(() => waSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
+  };
+
+  const dismissWaReminder = () => {
+    localStorage.setItem('meubusapp_wa_reminder_off', '1');
+    setWaReminderOff(true);
+  };
+
   return (
     <div className="container" style={{ position: 'relative', padding: 0 }}>
       <AdBanner position="top" />
@@ -203,6 +220,45 @@ export default function Home() {
             )}
           </div>
         </header>
+
+        {/* Lembrete: vincular WhatsApp para não perder o saldo */}
+        {pontosAtivados && totalPoints > 0 && !hasPhone && !waReminderOff && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(37,211,102,0.15), rgba(16,185,129,0.12))',
+            border: '1px solid rgba(37,211,102,0.45)',
+            borderRadius: '1rem',
+            padding: '1rem',
+            marginBottom: '1.2rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.8rem',
+          }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <MessageCircle size={20} color="white" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e2e8f0' }}>
+                Proteja seus {totalPoints} MeuBusCoins! 🔒
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                Vincule seu WhatsApp para não perder o saldo se trocar de celular.
+              </div>
+              <button
+                onClick={openWaLink}
+                style={{ marginTop: '8px', background: '#25D366', border: 'none', color: 'white', fontWeight: 700, fontSize: '0.8rem', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Vincular meu WhatsApp
+              </button>
+            </div>
+            <button
+              onClick={dismissWaReminder}
+              aria-label="Dispensar"
+              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', alignSelf: 'flex-start' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
 
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           <h2 style={{ textAlign: 'center', marginBottom: '0.8rem', fontSize: '1.2rem', color: '#e2e8f0' }}>O que você vai fazer hoje?</h2>
@@ -494,7 +550,7 @@ export default function Home() {
             </div>
 
             {/* Seção: WhatsApp */}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
+            <div ref={waSectionRef} style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
               <div style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 600, marginBottom: '0.5rem' }}>
                 💬 Recuperar pelo WhatsApp
               </div>
